@@ -7,12 +7,13 @@
  * Author URI: http://atticuswhite.com
  */
 
-add_action('init', 'test');
-function test () {
-  wp_new_user_notification(17, true);
-}
+// uncomment for testing the email
+// add_action('init', 'test');
+// function test () {
+//   wp_new_user_notification(17, true);
+// }
 
-function getUserEmailTemplate($user) {
+function getUserEmailTemplate($user, $key) {
   $loginUrl = wp_login_url();
   $siteUrl = str_replace('/wp-login.php', '', $loginUrl);
   $activateUrl = network_site_url("wp-login.php?action=rp&key=$key&login=" . rawurlencode($user->user_login), 'login');
@@ -43,7 +44,7 @@ function wp_new_user_notification( $user_id, $notify = '' ) {
 	$message .= sprintf(__('E-mail: %s'), $user->user_email) . "\r\n";
 
 
-	// @wp_mail(get_option('admin_email'), sprintf(__('[%s] New User Registration'), $blogname), $message);
+	@wp_mail(get_option('admin_email'), sprintf(__('[%s] New User Registration'), $blogname), $message);
 
 	if ( 'admin' === $notify || empty( $notify ) ) {
 		return;
@@ -61,17 +62,15 @@ function wp_new_user_notification( $user_id, $notify = '' ) {
 		$wp_hasher = new PasswordHash( 8, true );
 	}
 	$hashed = time() . ':' . $wp_hasher->HashPassword( $key );
-	// $wpdb->update( $wpdb->users, array( 'user_activation_key' => $hashed ), array( 'user_login' => $user->user_login ) );
+	$wpdb->update( $wpdb->users, array( 'user_activation_key' => $hashed ), array( 'user_login' => $user->user_login ) );
 
-	$message = sprintf(__('Username: %s'), $user->user_login) . "\r\n\r\n";
-	$message .= __('To set your password, visit the following address:') . "\r\n\r\n";
-	$message .= '<' . network_site_url("wp-login.php?action=rp&key=$key&login=" . rawurlencode($user->user_login), 'login') . ">\r\n\r\n";
+  $message = getUserEmailTemplate($user, $key);
+  add_filter('wp_mail_content_type', 'set_html_content_type');
+  $headers = 'From: SitesForSanders <support@forberniesanders.com>' . "\r\n";
+	wp_mail($user->user_email, 'Your new Bernie Sanders website', $message, $headers);
+  remove_filter('wp_mail_content_type', 'set_html_content_type');
+}
 
-	$message .= wp_login_url() . "\r\n";
-
-
-    echo getUserEmailTemplate($user);
-    die();
-
-	// wp_mail($user->user_email, sprintf(__('[%s] Your username and password info'), $blogname), $message);
+function set_html_content_type() {
+  return 'text/html';
 }
